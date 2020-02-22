@@ -1,0 +1,157 @@
+<html>
+    <head>
+        <title>My WebMap</title>
+        <!-- Bootstrap CSS -->
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+        <style>
+            #header{
+                    height: 75px;
+                    background-color: darkgoldenrod;
+                    }
+
+            #mapdiv{
+                height: 850px;
+                background-color: salmon;
+            }
+
+            #side_pannel{
+                height: 850px;
+                background-color:beige;
+            }
+
+            #footer{
+                height: 75px;
+                background-color: darkgray;
+            }
+            #center {
+                display: block;
+                margin-left: auto;
+                margin-right: auto;
+                width: 70%;
+            }
+
+        </style>
+         <!--Leaflet CSS file -->
+         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+         integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+         crossorigin=""/>
+
+          <!-- Make sure you put this AFTER Leaflet's CSS -->
+        <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+        integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+        crossorigin=""></script>
+
+        <!-- This is for adding JQUERY library -->
+        <script
+        src="https://code.jquery.com/jquery-3.4.1.min.js"
+        integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+        crossorigin="anonymous"></script>
+
+        <!-- Here we add AJAX inside leaflet to our project-->
+        <script src="resources/leaflet.ajax.js"></script>
+        
+        <!--Load Turf minified javascropt file to be used in advanced spatial analysis-->
+        <script src="resources/turf.min.js"></script>
+      
+    </head>
+    <div class="container">
+        <header class="row">
+            <div id="header" class="col-md-12">
+                <h1 class="text-center">Birjand</h1>
+            </div>
+        </header>
+        <body>
+             <div class="row">
+                <div id="side_pannel" class="col-md-3">
+                    <h1 class="text-center">Attractions</h1>
+                    <button class="btn-warning form-control" id="btnBuffer">Buffer</button>
+                    <br>
+                    <button class = 'btn-primary form-control' id='zoom-to-castle'>Zoom to Castle</button><br>
+                </div>
+                <div id="mapdiv" class="col-md-9"><h1>Map</h1></div>
+            </div>
+            <div class="row">
+                <div id="footer" class="col-md-12">
+                    <h4 id="map_coords" class="text-center">Lattitude: Longitude: Zoom Level:</h4>
+                </div>
+             </div>
+             <script>
+                 var myMap = L.map('mapdiv');
+                 myMap.setView([32.882921, 59.205100],12);
+                 var BackgroundLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+                 myMap.addLayer(BackgroundLayer);
+
+
+                 var zocaloMarker = L.marker([32.882921, 59.205100]);
+                 zocaloMarker.addTo(myMap);
+                 zocaloMarker.bindPopup("<h2 class='text-center'>View of Birjand Castle as the symbol of tourists sites</h2><a target='blank' href='https://en.wikipedia.org/wiki/Birjand'><img id='center' padding=auto src='http://dreamofiran.com/wp-content/uploads/2013/10/birjand-and-the-castle.jpg'><\a>");
+                
+                
+                 $("#zoom-to-castle").click(function(){
+                    myMap.setView([32.882921, 59.205100],16);
+                 });
+
+
+                 myMap.on("mousemove", function(e){
+                     var str = "Latitude: " + e.latlng.lat.toFixed(5) + " Longitude: " + e.latlng.lng.toFixed(5) +
+                     " Zoom Level: "+ myMap.getZoom();
+                     $("#map_coords").html(str);
+                 });
+
+
+                 myMap.on("click", function(e){
+                    var str = "Latitude: " + e.latlng.lat.toFixed(5) + " Longitude: " + e.latlng.lng.toFixed(5);
+                     var userMarker = L.marker([e.latlng.lat,e.latlng.lng]);
+                     userMarker.addTo(myMap);
+                     userMarker.bindPopup(str);
+
+                 });
+
+                //  Here we add an external GeoJSON layer to the Map 
+
+                 var geojsonLayer = new L.geoJson.ajax("data/attractions.geojson",{pointToLayer:
+                 function(feature, latlng){
+
+                // How to make a button for zoom functionality in sidebar for each point in GeoJSON
+                    var str = "<button id='zoomTo"+feature.properties.name.replace(/ /g,'');
+                     str += "' class='btn-primary form-control'>";
+                     str += feature.properties.name+"</button><br>";
+                     $('#side_pannel').append(str);
+                    
+                // Add each button zoom functionality
+                    $("#zoomTo"+feature.properties.name.replace(/ /g,'')).click(function(){
+                    myMap.setView([latlng.lat, latlng.lng],16);
+                    });
+
+                     var str = "<h4>"+feature.properties.name+"</h4><hr>";
+                     str += "<a href='"+ feature.properties.web+"' target='blank'>";
+                     str += "<img src='img/"+feature.properties.image+"' width='200px'>";
+                     str += "</a>";
+                     return L.marker(latlng).bindPopup(str);
+                 }}).addTo(myMap);
+
+                                  
+                // Give buffer functionallity to the button of buffer
+                 var bufferLayer;
+                 $('#btnBuffer').click(function(){
+                    if ($('#btnBuffer').html()=='Buffer') {
+                        $('#btnBuffer').html('Remove Buffer');
+                        var bufferedAttractions = turf.buffer(geojsonLayer.toGeoJSON(),1,{unit:'kilometers'});
+                        bufferLayer = L.geoJSON(bufferedAttractions).addTo(myMap);
+                    } else {
+                        $('#btnBuffer').html('Buffer');
+                        myMap.removeLayer(bufferLayer);
+                    }
+                 });
+                 
+
+                 
+                 
+             </script>
+            
+        </body>
+        <footer>
+            <h4 class="text-center">&copy;2020 <a href="https://github.com/hojjat69">Hojjat Borhany</a></h4>
+        </footer>
+    </div>
+</html>
